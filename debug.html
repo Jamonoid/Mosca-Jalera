@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Fly Debug</title>
+<style>html,body{margin:0;background:#222;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+import { Fly } from './src/fly.js';
+
+// ?mode=walk&speed=10&t=0.3  -> 4 vistas (lado, frente, arriba, 3/4)
+const q = new URLSearchParams(location.search);
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setScissorTest(true);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x2a2a30);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2));
+const sun = new THREE.DirectionalLight(0xffffff, 2); sun.position.set(3, 5, 2); scene.add(sun);
+const grid = new THREE.GridHelper(10, 20, 0x666666, 0x444444); scene.add(grid);
+
+Fly.restMode = q.get('rest');
+const fly = await Fly.load();
+scene.add(fly.root);
+for (const h of (q.get('hide')||'').split(',').filter(Boolean)) fly.model.traverse(o => { if (o.isMesh && o.material === fly.materials[h]) o.visible = false; });
+if (q.get('flat')) Object.values(fly.materials).forEach(m => { m.flatShading = true; m.needsUpdate = true; });
+const m = { speed: +(q.get('speed') ?? 0), mode: 'walk', tremor: +(q.get('tremor') ?? 0), wings: +(q.get('wings') ?? 0),
+  spread: +(q.get('spread') ?? 0), proboscis: +(q.get('proboscis') ?? 0), fall: +(q.get('fall') ?? 0), sway: 0,
+  groom: +(q.get('groom') ?? 0), curl: +(q.get('curl') ?? 0), flail: +(q.get('flail') ?? 0) };
+fly.gaitPhase = +(q.get('phase') ?? 0) - m.speed * 0.9 * 0.016;
+fly.update(0.016, m);
+fly.update(0.5, { ...m, speed: 0 }); fly.gaitPhase = +(q.get('phase') ?? 0); fly.update(0, m);
+
+const views = [
+  [new THREE.Vector3(0, 0.6, 5), 'lado'], [new THREE.Vector3(5, 0.6, 0), 'frente'],
+  [new THREE.Vector3(0.01, 6, 0), 'arriba'], [new THREE.Vector3(3.5, 2.5, 3.5), '3/4'],
+];
+const W = innerWidth / 2, H = innerHeight / 2;
+views.forEach(([p], i) => {
+  const cam = new THREE.PerspectiveCamera(30, W / H, 0.01, 100);
+  cam.position.copy(p); cam.lookAt(0, 0.5, 0);
+  const x = (i % 2) * W, y = (1 - Math.floor(i / 2)) * H;
+  renderer.setViewport(x, y, W, H); renderer.setScissor(x, y, W, H);
+  renderer.render(scene, cam);
+});
+console.log('standHeight', fly.standHeight.toFixed(3));
+document.title = 'ready';
+</script>
+</body>
+</html>

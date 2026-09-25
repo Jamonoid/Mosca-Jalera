@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulación</title>
+<meta name="description" content="Simulación 3D de Drosophila con autoadministración de etanol, nicotina y cocaína, apuestas y reels, con un circuito real de FlyWire.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="stage"></div>
+
+<header class="topbar">
+  <div class="title"></div>
+  <div class="seg" role="group" aria-label="Velocidad">
+    <button data-speed="1">1×</button><button data-speed="3">3×</button><button data-speed="10">10×</button>
+  </div>
+  <div class="tools">
+    <button id="camBtn" title="Cambiar cámara (C)">Cámara: sujeto</button>
+    <button id="fxBtn" class="on" title="Distorsión visual según el estado farmacológico">Efectos visuales</button>
+    <button id="sndBtn" title="Sonido">Sonido: sí</button>
+    <button id="helpBtn" title="Modelo y referencias">Ayuda</button>
+  </div>
+</header>
+
+<button id="leftTab" class="tab left">Control</button>
+<button id="rightTab" class="tab right">Cerebro</button>
+
+<div id="colLeft" class="col left">
+  <section id="god" class="panel">
+    <h2>Control experimental</h2>
+    <p class="hint">Clic en una estación del mundo para activarla o retirarla. Clic en la mosca: estímulo de amenaza.</p>
+    <h3>Estaciones</h3>
+    <div id="stationToggles" class="toggles"></div>
+    <h3>Dosis por consumo</h3>
+    <label class="slider"><span>Etanol</span><input id="p_etanol" type="range" min="0.5" max="3" step="0.1" value="1"><output id="v_etanol">×1.0</output></label>
+    <label class="slider"><span>Nicotina</span><input id="p_nicotina" type="range" min="0.5" max="3" step="0.1" value="1"><output id="v_nicotina">×1.0</output></label>
+    <label class="slider"><span>Cocaína</span><input id="p_cocaina" type="range" min="0.5" max="3" step="0.1" value="1"><output id="v_cocaina">×1.0</output></label>
+    <h3>Intervenciones</h3>
+    <div class="actions">
+      <button data-act="rechazo">Rechazo sexual</button>
+      <button data-act="cita">Apareamiento</button>
+      <button data-act="fichas">+25 fichas</button>
+      <button data-act="susto">Estímulo de amenaza</button>
+      <button data-act="rehab">Abstinencia 90 s</button>
+      <button data-act="reset">Nuevo sujeto</button>
+    </div>
+    <p class="keys"><kbd>Espacio</kbd> pausa · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> velocidad · <kbd>C</kbd> cámara</p>
+  </section>
+
+  <section id="subject" class="panel">
+    <div class="status">
+      <span id="stDot" class="dot"></span>
+      <div class="st-txt"><div id="stText">…</div><div id="stSub" class="sub"></div></div>
+    </div>
+    <div id="profile" class="profile"></div>
+    <div class="fichas">Fichas <b id="fichas">30</b> <span id="balance"></span></div>
+    <div id="bars" class="bars"></div>
+    <h3>Farmacología <small>barra = efecto · línea = tolerancia</small></h3>
+    <div id="subs" class="bars"></div>
+    <h3>Etograma <small>presupuesto de tiempo</small></h3>
+    <div id="ethoBar" class="etho"></div>
+    <div id="ethoLegend" class="etho-legend"></div>
+    <details>
+      <summary>Contadores</summary>
+      <div id="statsGrid" class="stats"></div>
+    </details>
+    <button id="csvBtn" class="csv">Exportar registro (CSV)</button>
+  </section>
+</div>
+
+<aside id="brain" class="col right term">
+  <div class="chips"><span id="brainMeta"></span></div>
+  <div class="brain3d">
+    <canvas id="brainCanvas"></canvas>
+    <div class="hint3d">arrastra para rotar</div>
+  </div>
+  <div class="legend">
+      <span><i style="background:#5fa8c8"></i>lóbulo óptico</span>
+      <span><i style="background:#9fb4cc"></i>cerebro central</span>
+      <span><i style="background:#ffffff"></i>descendentes</span>
+      <span><i style="background:#ff4d4d"></i>circuito (+) ACh</span>
+      <span><i style="background:#4da3ff"></i>circuito (−) GABA/Glu</span>
+      <span><i style="background:#ffb340"></i>circuito DA/5-HT</span>
+  </div>
+  <div id="brainFx" class="brainfx"></div>
+  <div class="ngrid">
+    <div>
+      <h4>Entradas → sensoriales</h4>
+      <div id="nIn"></div>
+      <h4>Cuerpo fungiforme · neuromodulación</h4>
+      <div id="nPop"></div>
+      <h4>Selección de acción · MBON</h4>
+      <div id="nSel"></div>
+    </div>
+    <div>
+      <h4 id="nDnTitle">descendentes</h4>
+      <div id="nDn"></div>
+      <h4>Readout → acción</h4>
+      <div id="nOut"></div>
+      <div class="reward">
+        <div>DA fásica <b id="rwPhasic">0.00</b></div>
+        <div>RPE <b id="rwRPE">+0.00</b></div>
+        <div>sensibilidad DA <b id="rwSens">1.00</b></div>
+      </div>
+    </div>
+  </div>
+  <h4>Series temporales · 2 min</h4>
+  <canvas id="seriesCanvas"></canvas>
+  <div id="seriesLegend" class="slegend"></div>
+</aside>
+
+<div id="log" aria-live="polite"></div>
+<div id="mood"></div>
+<div class="paused-badge">PAUSA</div>
+
+<div id="death" hidden>
+  <div class="card">
+    <h2>Fin del registro</h2>
+    <p id="deathCause"></p>
+    <ul id="deathStats"></ul>
+    <button id="reviveBtn">Nuevo sujeto</button>
+  </div>
+</div>
+
+<dialog id="help">
+  <h2>Modelo y referencias</h2>
+  <p>La mosca elige sola entre alimentarse, dormir, acicalarse y cinco estímulos de recompensa: etanol, nicotina, cocaína, una tragamonedas y un feed de reels. El usuario solo modifica el entorno y aplica intervenciones.</p>
+  <h3>Qué es real y qué es modelo</h3>
+  <ul>
+    <li><b>Anatomía y conectividad (reales):</b> la nube muestra los 139.248 somas de FlyWire FAFB v783 (Dorkenwald et al., 2024; Schlegel et al., 2024). El circuito de 70 neuronas y sus 4.264 sinapsis salen de la conectividad publicada por Shiu et al. (Nature 2024). El signo viene del neurotransmisor predicho (Eckstein et al., Cell 2024).</li>
+    <li><b>Actividad (modelo):</b> la actividad neuronal y la conducta vienen de un modelo fenomenológico, no de simular el connectome neurona a neurona.</li>
+    <li><b>Cuerpo:</b> <a href="https://github.com/TuragaLab/flybody" target="_blank" rel="noopener">flybody</a> (Vaxenburg et al., Nature 2025), simplificado.</li>
+  </ul>
+  <h3>Mecanismos</h3>
+  <ul>
+    <li><b>Navegación:</b> no hay destinos fijos. Cada estación emite olor (una pluma intermitente) o luz, y la mosca la capta con sensores bilaterales. La motivación de cada señal (MBON) pondera el contraste entre izquierda y derecha, que se convierte en giro por las DNa01/DNa02. A eso se suman ruido motor, sacadas, búsqueda en zigzag al perder la pluma, pausas, acicalamiento, vuelos cortos y seguimiento del borde.</li>
+    <li><b>Individualidad:</b> cada sujeto nace con un perfil propio: sensibilidad a cada droga, tasa de aprendizaje, búsqueda de novedad, nivel de actividad y sesgo de giro (Buchanan, Kain &amp; de Bivort, PNAS 2015).</li>
+    <li><b>Aprendizaje:</b> las dopaminérgicas PAM señalan recompensa y las PPL1, castigo. Las salidas del cuerpo fungiforme (MBON) guardan el valor aprendido de cada opción y se actualizan con el error de predicción (RPE). Lo que aún no probó recibe una bonificación por novedad.</li>
+    <li><b>Tolerancia, saciedad y abstinencia:</b> con el uso, cada dosis tiene menos efecto. Con la droga ya alta, la autoadministración baja (umbral de saciedad; Tsibulsky &amp; Norman, 1999). Cuando no hay droga aparece la abstinencia, que aumenta el valor de volver a consumir. Además, el abuso crónico reduce la sensibilidad dopaminérgica.</li>
+    <li><b>Fin de cada consumo:</b> no dura un tiempo fijo. La mosca para por saciedad (etanol y nicotina según su efecto; cocaína según la dopamina, que dosifica hacia un punto de saciedad; Wise et al., 1995), por malestar al acercarse al umbral tóxico, por amargor en el caso de la nicotina (rechazo innato) o por hambre o sueño. La adicción debilita las señales aversivas y el sujeto puede seguir pese al daño (búsqueda resistente a la aversión; Kaun et al., Nat Neurosci 2011). Los daños están atenuados respecto de la realidad para que una sobredosis no sea fulminante.</li>
+    <li><b>Etanol:</b> primero hiperactividad y luego pérdida del control postural (inebriómetro; Moore et al., Cell 1998). El rechazo sexual baja el NPF y aumenta la preferencia por etanol (Shohat-Ophir et al., Science 2012).</li>
+    <li><b>Cocaína:</b> acicalamiento, giros estereotipados y parálisis con dosis altas (McClung &amp; Hirsh, Curr Biol 1998). Suprime el apetito; con acceso ilimitado, la pérdida de peso es una causa de muerte (Bozarth &amp; Wise, JAMA 1985).</li>
+    <li><b>Apuestas:</b> programa de recompensa de razón variable. Los casi-aciertos generan una respuesta de recompensa sin premio.</li>
+    <li><b>Reels:</b> clips de alta saliencia visual (flujo óptico para T4/T5) con recompensas de cola pesada. El brainrot reduce la atención, así que corta los clips antes de su recompensa.</li>
+    <li><b>Escape:</b> estímulo de amenaza → LPLC2 → Giant Fiber (DNp01) → despegue (von Reyn et al., Nat Neurosci 2014). Giro: DNa01/DNa02 del lado del giro (Rayshubskiy et al., 2020).</li>
+  </ul>
+  <p class="small">Encontrado vía <a href="https://github.com/cobanov/awesome-fly" target="_blank" rel="noopener">awesome-fly</a>. Es una herramienta de divulgación. Los parámetros son ilustrativos y no están ajustados a datos.</p>
+  <button id="helpClose">Cerrar</button>
+</dialog>
+
+<div id="loading"><div class="spinner"></div><p>Cargando modelo y connectome…</p></div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
