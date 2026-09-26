@@ -2,7 +2,7 @@
 
 Simulación 3D de una mosca de la fruta (*Drosophila melanogaster*) expuesta a estímulos de recompensa: etanol, nicotina, cocaína, una tragamonedas y un feed de reels. La mosca decide por sí misma qué hacer; el usuario solo modifica el entorno y aplica intervenciones.
 
-## Qué modela
+## Comportamiento modelado
 
 - **Navegación sensoriomotora:** cada estación emite olor o luz, y la mosca lo capta con sensores bilaterales. El giro sale del contraste entre izquierda y derecha, ponderado por su motivación.
 - **Decisión y aprendizaje:** el valor de cada opción depende del hambre, el sueño, la abstinencia, la saciedad y la novedad, y se actualiza con el error de predicción de recompensa (dopamina PAM/PPL1, salidas MBON).
@@ -10,18 +10,18 @@ Simulación 3D de una mosca de la fruta (*Drosophila melanogaster*) expuesta a e
 - **Individualidad:** cada sujeto nace con un perfil propio de sensibilidades, aprendizaje, búsqueda de novedad y sesgo de giro.
 - **Registro:** el panel muestra el etograma y las series temporales, y los datos se exportan a CSV.
 
-## Qué es real y qué es modelo
+## Datos reales y supuestos
 
 - **Datos reales:**
   - Connectome MaleCNS v1.0 (Janelia y Google Research, Cell 2026): sistema nervioso central completo de un macho, con 165.122 neuronas.
   - El cuerpo de [flybody](https://github.com/TuragaLab/flybody) (Vaxenburg et al., Nature 2025).
-- **Simulación del connectome:** las 165.122 neuronas corren en vivo como un modelo LIF (parámetros de Shiu et al., Nature 2024) sobre sus 6,1 millones de conexiones. Los sentidos entran por neuronas sensoriales reales. Las neuronas descendentes y motoras reales deciden el escape (Giant Fiber), el giro (DNa01/02), el retroceso (MDN) y la extensión de probóscide (MN9).
+- **Simulación del connectome:** las 165.122 neuronas corren en vivo en la GPU como un modelo LIF (parámetros y paso de 0,1 ms de Shiu et al., Nature 2024) sobre sus 6,1 millones de conexiones. Los sentidos entran por neuronas sensoriales reales. Las neuronas descendentes y motoras reales deciden el escape (Giant Fiber), el giro (DNa01/02), el retroceso (MDN) y la extensión de probóscide (MN9).
 - **Modelo fenomenológico:** la motivación, el aprendizaje por dopamina y la farmacología de alto nivel.
 - **Parámetros:** son ilustrativos y no están ajustados a datos experimentales.
 
 ## Uso
 
-Requiere Python 3 y un navegador.
+Requiere Python 3 y un navegador con WebGPU (Chrome, Edge u Opera). Sin WebGPU, el connectome corre en la CPU con un paso de 1 ms.
 
 ```
 iniciar.bat    abre el servidor local y la simulación en http://localhost:8765/

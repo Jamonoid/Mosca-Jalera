@@ -26,7 +26,7 @@ async function loadFonts() {
 
 const stage = document.getElementById('stage');
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(devicePixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
@@ -68,7 +68,7 @@ const sim = new FlySim({ fly, brain, world, sfx });
 // Post-proceso
 const size = new THREE.Vector2();
 renderer.getDrawingBufferSize(size);
-const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 });
+const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 8 });
 const composer = new EffectComposer(renderer, rt);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.35, 0.4, 0.92);
@@ -172,7 +172,6 @@ addEventListener('resize', () => {
 // Bucle principal
 const clock = new THREE.Clock();
 const fxState = { drunk: 0, high: 0, sick: 0 };
-let sendT = 0;
 function frame() {
   const rdt = Math.min(clock.getDelta(), 0.1);
   const sdt = app.paused ? 0 : rdt * app.speed;
@@ -204,8 +203,7 @@ function frame() {
   intox.uniforms.uHigh.value = fxState.high;
   intox.uniforms.uSick.value = fxState.sick;
 
-  sendT += rdt;
-  if (sendT > 0.05) { sendT = 0; brainSim.send(sim, brain, world, app); }
+  brainSim.send(sim, brain, world, app); // entradas sensoriales al connectome en cada cuadro
   ui.update(rdt);
   updateCamera(rdt);
   composer.render();

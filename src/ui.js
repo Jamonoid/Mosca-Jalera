@@ -344,7 +344,7 @@ export class UI {
       const st = this.brainSim.state, m = this.brainSim.meta;
       info.textContent = this.brainSim.error ? `simulación detenida: ${this.brainSim.error}`
         : !st ? 'cargando el connectome completo…'
-        : `simulación LIF en vivo · ${m.neurons.toLocaleString('es')} neuronas · ${(m.edges / 1e6).toFixed(1).replace('.', ',')} M conexiones · tiempo biológico ×${st.bioRatio.toFixed(2).replace('.', ',')} · ${st.active.toLocaleString('es')} activas`;
+        : `simulación LIF en vivo (${m.backend.toUpperCase()}, dt ${String(m.dt).replace('.', ',')} ms) · ${m.neurons.toLocaleString('es')} neuronas · ${(m.edges / 1e6).toFixed(1).replace('.', ',')} M conexiones · tiempo biológico ×${st.bioRatio.toFixed(2).replace('.', ',')} · ${st.firing.toLocaleString('es')} disparando`;
     }
     const w = this.sim.state === 'free' ? this.sim.weights : {};
     for (const id of this.world.stations.keys()) {

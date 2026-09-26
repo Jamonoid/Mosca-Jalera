@@ -1076,7 +1076,7 @@ export class World {
     const spot = new THREE.SpotLight(0xfff2e6, 4.2, 0, 0.72, 0.65, 0);
     spot.position.set(0, 180, 40);
     spot.castShadow = true;
-    spot.shadow.mapSize.set(2048, 2048);
+    spot.shadow.mapSize.set(4096, 4096);
     spot.shadow.camera.near = 100; spot.shadow.camera.far = 280;
     spot.shadow.bias = -0.0004; spot.shadow.normalBias = 0.04;
     s.add(spot, spot.target);

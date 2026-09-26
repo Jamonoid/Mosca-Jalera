@@ -10,11 +10,19 @@ export class BrainSim {
     this.worker.onmessage = (e) => {
       const m = e.data;
       if (m.type === 'ready') { this.ready = true; this.meta = m.meta; }
-      if (m.type === 'state') { this.state = m; for (const fn of this.listeners) fn(m); }
+      if (m.type === 'state') {
+        // MN9 tiene pocas neuronas y dispara poco: su tasa se suaviza (tau 0,5 s biologico)
+        const a = 1 - Math.exp(-(m.bioTime - (this.state?.bioTime ?? m.bioTime)) / 500);
+        this.mn9 += a * (m.rates.MN9 - this.mn9);
+        this.state = m;
+        for (const fn of this.listeners) fn(m);
+      }
+      if (m.type === 'error') this.error = m.message;
     };
     this.worker.onerror = (e) => { this.error = e.message || 'error en el worker'; };
     this.worker.postMessage({ type: 'init', base, cellIdx });
     this.pendingLoom = 0;
+    this.mn9 = 0;
   }
 
   onState(fn) { this.listeners.push(fn); }

@@ -37,7 +37,7 @@ export class BrainView {
     this.meta = meta;
     this.canvas = canvas;
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setPixelRatio(devicePixelRatio);
     renderer.setClearColor(0x05070a, 1);
     this.renderer = renderer;
     this.scene = new THREE.Scene();

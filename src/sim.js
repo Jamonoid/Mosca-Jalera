@@ -706,7 +706,7 @@ export class FlySim {
       }
       case 'comida': {
         const hunger = 1 - b.energia;
-        const pe = this.brainSim?.out ? 0.3 + 0.7 * clamp(this.brainSim.out.MN9 / 5) : 1; // MN9: extension de probóscide
+        const pe = this.brainSim?.out ? 0.3 + 0.7 * clamp(this.brainSim.mn9 / 3) : 1; // MN9 (Hz): extension de probóscide
         b.energia = clamp(b.energia + 0.09 * pe * dt);
         this.sessionR += b.reward((0.06 + 0.2 * hunger) * dt);
         this.acc += dt;
@@ -837,7 +837,7 @@ export class FlySim {
       tremor: dead ? 0 : clamp(Math.max(eNic - 0.55, b.W('etanol') * 0.9, b.W('nicotina') * 0.5, this.state === 'seizure' ? 1 : 0, b.susto * 0.3, eCoc > 0.9 ? 0.5 : 0)),
       wings: dead ? 0 : this.state === 'jump' ? 1 : this.celebrate > 0 ? 0.8 : (eCoc > 0.7 && Math.sin(b.stats.vivo * 1.3) > 0.7 ? 0.5 : 0),
       spread: this.celebrate > 0 ? 0.6 : 0,
-      proboscis: this.brainSim?.out ? clamp(this.brainSim.out.MN9 / 6) : (act === 'bar' || act === 'comida') ? 0.6 + 0.4 * Math.max(0, Math.sin(this.actT * 4))
+      proboscis: (act === 'bar' || act === 'comida') ? (this.brainSim?.out ? clamp(this.brainSim.mn9 / 3) : 0.6 + 0.4 * Math.max(0, Math.sin(this.actT * 4)))
         : act === 'coca' ? (Math.abs(this.actT - 0.8) < 0.35 || Math.abs(this.actT - 1.8) < 0.35 ? 1 : 0.2) : 0,
       fall: dead || this.state === 'fallen' ? 1 : 0,
       sway: dead ? 0 : clamp(eEth * 1.4),

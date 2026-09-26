@@ -1,4 +1,5 @@
-// Simulacion LIF del connectome completo (MaleCNS v1.0), orientada a eventos.
+// Simulacion LIF del connectome completo (MaleCNS v1.0), orientada a eventos, en la CPU.
+// Es la alternativa cuando el navegador no ofrece WebGPU; la version principal es lif_gpu.js (dt 0,1 ms, sin poda).
 // Parametros de Shiu et al. (Nature 2024): tau_m 20 ms, V_rest = V_reset = -52 mV, V_th = -45 mV,
 // refractario 2,2 ms, retardo sinaptico 1,8 ms, tau_syn 5 ms (peso sinaptico: ver PARAMS).
 // Se agrega adaptacion de frecuencia (corriente que crece con cada disparo y decae con tau_a), ausente en el
@@ -7,14 +8,15 @@
 // corto plazo (Tsodyks-Markram, por neurona presinaptica): el uso sostenido agota los recursos y la sinapsis
 // transmite menos, lo que corta reverberaciones; a tasas normales casi no cambia la transmision.
 // Solo se integran las neuronas activas (con potencial, conductancia o adaptacion distintos de cero),
-// lo que permite correr las 165.122 neuronas en tiempo real sin GPU.
+// lo que permite correr las 165.122 neuronas en tiempo real en la CPU.
 
 // wSyn: 0,275 mV de Shiu escalado por la densidad sinaptica: el MaleCNS registra ~1,73 veces mas
 // sinapsis de entrada por neurona que FlyWire (sobre el que se calibro el modelo) -> 0,16 mV, y +12 %
 // para compensar la depresion de corto plazo a tasas bajas -> 0,18 mV.
 // Validacion (1 s): azucar (LB3) -> MN9 activo; looming (LPLC2/LC4) -> Giant Fiber > 300 Hz; olor -> PN ~13 Hz
 // y celulas de Kenyon escasas (~15 % activas); sin actividad autosostenida al retirar el estimulo.
-// dt de 1 ms (Shiu usa 0,1 ms): estable con tau de 5 y 20 ms y permite correr en tiempo real en el navegador.
+// dt de 1 ms (Shiu usa 0,1 ms): estable con tau de 5 y 20 ms y permite correr en tiempo real en la CPU; la
+// integracion de Euler con este paso agranda ~12 % el potencial postsinaptico respecto de dt 0,1 ms.
 export const PARAMS = { dt: 1, tauM: 20, tauS: 5, vTh: 7, tRef: 2.2, delay: 1.8, wSyn: 0.18, aInc: 2, tauA: 200, U: 0.1, tauRec: 150 };
 
 /** Muestra de una distribucion de Poisson de media lam. */

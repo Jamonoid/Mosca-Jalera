@@ -1,10 +1,12 @@
 // Hilo aparte que corre la simulacion LIF del connectome completo en tiempo biologico.
 // Recibe tasas de entrada sensoriales y farmacologia; devuelve tasas de salida y la traza visual.
+// Usa la GPU (WebGPU, dt 0,1 ms, todas las neuronas en cada paso); si el navegador no la ofrece, la CPU (dt 1 ms).
 import { LIF } from './lif.js';
+import { LIFGPU } from './lif_gpu.js';
 
 let sim = null, G = null, cells = [];
 let inputs = {}, speed = 1, running = true;
-let lastWall = 0, bioDebt = 0, lastPost = 0, bioSincePost = 0;
+let lastWall = 0, bioDebt = 0, lastPost = 0, bioSincePost = 0, busy = false;
 const drive = {};  // nombre -> entrada de Poisson registrada en sim.drives
 let loomUntil = 0;
 
@@ -19,7 +21,9 @@ self.onmessage = async (e) => {
     ]);
     G = groups;
     cells = Int32Array.from(m.cellIdx);
-    sim = new LIF(buf);
+    try { sim = await LIFGPU.create(buf); }
+    catch (err) { console.warn('connectome en CPU:', err.message); sim = new LIF(buf); }
+    const backend = sim.gpu ? 'gpu' : 'cpu';
     const In = G.inputs;
     for (const [name, idx] of [['sugarL', In.sugar.L], ['sugarR', In.sugar.R], ['odorL', In.odor.L], ['odorR', In.odor.R],
       ['lightL', In.light.L], ['lightR', In.light.R],
@@ -40,8 +44,8 @@ self.onmessage = async (e) => {
       light_L: I(In.light.L), light_R: I(In.light.R), loom: I([...In.loom.L, ...In.loom.R]),
     };
     lastWall = performance.now(); lastPost = lastWall;
-    self.postMessage({ type: 'ready', meta: { ...G.meta, nSoma: sim.nSoma } });
-    setInterval(tick, 8); // ~7 ms de computo cada 8 ms
+    self.postMessage({ type: 'ready', meta: { ...G.meta, nSoma: sim.nSoma, backend, dt: sim.p.dt } });
+    setInterval(tick, 8);
     return;
   }
   if (m.type === 'inputs') {
@@ -62,17 +66,37 @@ function applyInputs() {
   drive.dfb.current = inputs.dfbCurrent || 0;
 }
 
-function tick() {
-  if (!sim) return;
+async function tick() {
+  if (!sim || busy) return;
+  busy = true;
+  try { await advance(); }
+  catch (err) { running = false; self.postMessage({ type: 'error', message: err.message }); }
+  busy = false;
+}
+
+async function advance() {
   const now = performance.now();
   const wallMs = Math.min(100, now - lastWall);
   lastWall = now;
   if (running) bioDebt = Math.min(bioDebt + wallMs * speed, 200); // no acumular mas de 200 ms de atraso
   applyInputs();
-  const t0 = performance.now();
-  const dt = sim.p.dt;
-  while (bioDebt >= dt && performance.now() - t0 < 7) { sim.step(); bioDebt -= dt; bioSincePost += dt; }
-  if (now - lastPost >= 33 && bioSincePost > 0) post(now);
+  if (sim.gpu) {
+    // envios cortos (<= 8 bloques, ~14 ms biologicos) para que el renderizado se intercale en la GPU;
+    // los disparos se leen solo al publicar el estado
+    while (bioDebt >= sim.blockMs) {
+      const n = Math.min(8, Math.floor(bioDebt / sim.blockMs));
+      sim.submit(n);
+      bioDebt -= n * sim.blockMs; bioSincePost += n * sim.blockMs;
+    }
+  } else {
+    const t0 = performance.now(), dt = sim.p.dt;
+    while (bioDebt >= dt && performance.now() - t0 < 7) { sim.step(); bioDebt -= dt; bioSincePost += dt; }
+  }
+  const t = performance.now();
+  if (t - lastPost >= 33 && bioSincePost > 0) {
+    if (sim.gpu) await sim.readCounts();
+    post(performance.now());
+  }
 }
 
 function post(now) {
@@ -81,11 +105,13 @@ function post(now) {
   for (const k of Object.keys(G.I)) out[k] = r(G.I[k]);
   const cellRates = new Float32Array(cells.length);
   for (let j = 0; j < cells.length; j++) cellRates[j] = cells[j] >= 0 ? sim.count[cells[j]] * 1000 / win : 0;
+  let firing = 0;
+  for (let i = 0; i < sim.N; i++) if (sim.count[i]) firing++;
   sim.resetCounts();
   sim.decayTrace(Math.max(1, Math.round(win * 2.5)));
   const trace = sim.trace.slice(0, sim.nSoma);
   const wallWin = now - lastPost;
-  self.postMessage({ type: 'state', rates: out, cellRates, trace, bioTime: sim.time, bioRatio: win / wallWin, active: sim.nActive },
+  self.postMessage({ type: 'state', rates: out, cellRates, trace, bioTime: sim.time, bioRatio: win / wallWin, firing },
     [trace.buffer, cellRates.buffer]);
   lastPost = now;
   bioSincePost = 0;
