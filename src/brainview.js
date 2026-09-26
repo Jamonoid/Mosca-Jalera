@@ -1,4 +1,4 @@
-// Panel del cerebro: nube de somas de FlyWire (FAFB v783) + circuito real de 70 neuronas.
+// Panel del cerebro: nube de somas del MaleCNS v1.0 (sistema nervioso central completo) + circuito de 70 neuronas.
 // Anatomia y conectividad son datos reales; la actividad la maneja el modelo fenomenologico.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -6,7 +6,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 const fmt = (n) => n.toLocaleString('es');
 
-const CLASS_COLORS = { optic: 0x5fa8c8, central: 0x9fb4cc, descending: 0xffffff, ascending: 0x9c8fd0, sensory: 0x7fb08f, motor: 0xe0c070 };
+const CLASS_COLORS = { optic: 0x5fa8c8, central: 0x9fb4cc, descending: 0xffffff, ascending: 0x9c8fd0, sensory: 0x7fb08f, motor: 0xe0c070, vnc: 0x6fb89a };
 const SIGN_COLORS = { 1: 0xff4d4d, '-1': 0x4da3ff, 0: 0xffb340 };
 
 export const GROUPS = {
@@ -42,12 +42,12 @@ export class BrainView {
     this.renderer = renderer;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(32, 1.5, 10, 6000);
-    this.camera.position.set(0, 30, 1040);
+    this.camera.position.set(1150, 600, 1550);
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;
     this.controls.enablePan = false;
     this.controls.minDistance = 600;
-    this.controls.maxDistance = 2600;
+    this.controls.maxDistance = 3200;
     this.controls.autoRotate = true;
     this.controls.autoRotateSpeed = 0.35;
     this.root = new THREE.Group();
@@ -77,58 +77,32 @@ export class BrainView {
     pg.setAttribute('aNt', new THREE.BufferAttribute(aNt, 1));
     pg.setAttribute('aSide', new THREE.BufferAttribute(aSide, 1));
     pg.setAttribute('aRand', new THREE.BufferAttribute(aRand, 1));
+    this.actAttr = new THREE.BufferAttribute(new Uint8Array(n), 1, true);
+    this.actAttr.setUsage(THREE.DynamicDrawUsage);
+    pg.setAttribute('aAct', this.actAttr);
     this.uniforms = {
       uTime: { value: 0 }, uPR: { value: Math.min(devicePixelRatio, 2) },
       uVis: { value: 0 }, uOrnL: { value: 0 }, uOrnR: { value: 0 }, uKC: { value: 0 }, uDA: { value: 0 },
-      uSleep: { value: 0 }, uDN: { value: 0 }, uMBON: { value: 0 }, uEth: { value: 0 }, uNic: { value: 0 }, uCoc: { value: 0 },
+      uSleep: { value: 0 }, uDN: { value: 0 }, uMBON: { value: 0 }, uWalk: { value: 0 }, uEth: { value: 0 }, uNic: { value: 0 }, uCoc: { value: 0 },
     };
     this.cloud = new THREE.Points(pg, new THREE.ShaderMaterial({
       uniforms: this.uniforms, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
       vertexShader: /* glsl */`
-        attribute float aReg, aNt, aSide, aRand;
-        uniform float uTime, uPR, uVis, uOrnL, uOrnR, uKC, uDA, uSleep, uDN, uMBON, uEth, uNic, uCoc;
+        attribute float aNt, aAct;
+        uniform float uPR;
         varying vec3 vColor;
-        float hash(float x) { return fract(sin(x) * 43758.5453); }
         void main() {
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          float sed = (1.0 - 0.6 * uEth) * (1.0 - 0.75 * uSleep); // sedacion por etanol y sueño
-          vec3 add = vec3(0.0);
-          float a = 0.0, k;
-          // Actividad por region
-          if (aReg == 1.0) {                          // lobulo optico: ondas de flujo optico
-            float w = 0.5 + 0.5 * sin(position.x * 0.03 + position.y * 0.01 - uTime * 7.0 + aRand * 1.2);
-            k = uVis * smoothstep(0.7, 1.0, w) * sed; add += vec3(0.35, 0.8, 1.0) * k * 0.8; a = max(a, k * 0.8);
-          } else if (aReg == 2.0) {                   // celulas de Kenyon: codigo disperso; blanco de la dopamina
-            k = step(hash(aRand * 91.7 + floor(uTime * 5.0 + aRand * 4.0)), uKC * 0.5) * sed;
-            add += vec3(0.75, 0.55, 1.0) * k; a = max(a, k);
-            float dk = uCoc * (0.55 + 0.45 * sin(uTime * 4.0 + aRand * 20.0));
-            add += vec3(1.0, 0.62, 0.18) * dk * 1.4; a = max(a, dk);
-          } else if (aReg == 3.0) {                   // dopaminergicas (PAM/PPL): dopamina, sostenida por cocaina
-            k = clamp(uDA + uCoc * 1.5, 0.0, 1.0) * (0.75 + 0.25 * sin(uTime * 6.0 + aRand * 30.0));
-            add += vec3(1.0, 0.62, 0.18) * k * 3.0; a = max(a, k * 1.6);
-          } else if (aReg == 4.0) {                   // lobulo antenal: lado de la antena que capta el olor
-            k = (aSide < 0.5 ? uOrnL : aSide < 1.5 ? uOrnR : 0.5 * (uOrnL + uOrnR)) * sed;
-            add += vec3(0.5, 1.0, 0.45) * k; a = max(a, k);
-          } else if (aReg == 5.0) {                   // complejo central: sueño (dFB); tambien recibe dopamina
-            k = uSleep * (0.7 + 0.3 * sin(uTime * 1.5 + aRand * 6.0)); add += vec3(0.45, 0.55, 1.0) * k * 2.4; a = max(a, k * 1.3);
-            float dk = uCoc * 0.7 * (0.6 + 0.4 * sin(uTime * 4.0 + aRand * 20.0));
-            add += vec3(1.0, 0.62, 0.18) * dk * 1.4; a = max(a, dk);
-          } else if (aReg == 6.0) {                   // descendentes: salida motora / escape
-            k = uDN; add += vec3(1.0) * k; a = max(a, k);
-          } else if (aReg == 7.0) {                   // MBON: ansia / valor
-            k = uMBON; add += vec3(1.0, 0.8, 0.4) * k; a = max(a, k);
-          }
-          // Farmacologia por neurotransmisor
-          float flick = 0.5 + 0.5 * sin(uTime * 9.0 + aRand * 60.0);
-          if (aNt == 0.0) {                           // colinergicas: receptores nicotinicos
-            k = uNic * flick * step(0.82, aRand); add += vec3(1.0, 0.5, 0.2) * k * 0.6; a = max(a, k * 0.6);
-          } else if (aNt == 2.0) {                    // GABAergicas: potenciadas por etanol
-            k = uEth * (0.6 + 0.4 * flick) * step(0.45, aRand); add += vec3(0.7, 0.4, 1.0) * k * 0.55; a = max(a, k * 0.6);
-          } else if (aNt == 3.0) {                    // dopamina predicha: bloqueo del transportador
-            k = uCoc * (0.7 + 0.3 * flick); add += vec3(1.0, 0.62, 0.18) * k * 1.1; a = max(a, k);
-          }
-          vColor = color * 0.07 * sed + add * 0.5;
-          gl_PointSize = (1.2 + 3.2 * clamp(a, 0.0, 1.6)) * uPR;
+          // color del disparo segun el neurotransmisor de la neurona
+          vec3 hot = aNt == 0.0 ? vec3(1.0, 0.72, 0.42)      // acetilcolina
+                   : aNt == 1.0 ? vec3(0.35, 0.95, 0.8)      // glutamato
+                   : aNt == 2.0 ? vec3(0.7, 0.45, 1.0)       // GABA
+                   : aNt == 3.0 ? vec3(1.0, 0.6, 0.12)       // dopamina
+                   : aNt == 6.0 ? vec3(0.45, 0.7, 1.0)       // histamina
+                   : vec3(0.85);
+          float a = aAct;                                    // traza de disparo real (0..1)
+          vColor = color * 0.07 + hot * a * 1.1;
+          gl_PointSize = (1.2 + 3.4 * a) * uPR;
         }`,
       fragmentShader: /* glsl */`
         varying vec3 vColor;
@@ -148,7 +122,7 @@ export class BrainView {
       const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
       sprite.position.copy(p);
       this.root.add(sprite);
-      return { ...c, i, p, color, sprite, rate: 0, flash: 0, jitter: 0.75 + Math.random() * 0.5 };
+      return { ...c, i, p, color, sprite, rate: 0, flash: 0, jitter: 1 };
     });
     const maxSyn = Math.max(...meta.edges.map(e => e[2]));
     this.edges = meta.edges.map(([a, b, syn, sign]) => ({ a, b, syn, sign, w: 0.25 + 0.75 * Math.sqrt(syn / maxSyn) }));
@@ -192,11 +166,18 @@ export class BrainView {
   /** Estado global para la nube: vis, ornL, ornR, kc, da, sleep, dn, mbon, eth, nic, coc (0..1). */
   setState(st) {
     const u = this.uniforms;
-    const map = { vis: 'uVis', ornL: 'uOrnL', ornR: 'uOrnR', kc: 'uKC', da: 'uDA', sleep: 'uSleep', dn: 'uDN', mbon: 'uMBON', eth: 'uEth', nic: 'uNic', coc: 'uCoc' };
+    const map = { vis: 'uVis', ornL: 'uOrnL', ornR: 'uOrnR', kc: 'uKC', da: 'uDA', sleep: 'uSleep', dn: 'uDN', mbon: 'uMBON', walk: 'uWalk', eth: 'uEth', nic: 'uNic', coc: 'uCoc' };
     for (const [k, name] of Object.entries(map)) {
       const target = Math.min(1, Math.max(0, st[k] ?? 0));
       u[name].value += (target - u[name].value) * 0.15;
     }
+  }
+
+  /** Traza de disparos real de la simulacion (una entrada por soma, 0..255). */
+  setTrace(trace) {
+    if (trace.length !== this.actAttr.array.length) return;
+    this.actAttr.array.set(trace);
+    this.actAttr.needsUpdate = true;
   }
 
   /** drive(cell) -> actividad objetivo 0..1 de cada neurona del circuito. */

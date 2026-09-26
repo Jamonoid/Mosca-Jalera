@@ -26,8 +26,8 @@ const POP_ROWS = [['PN', 'PN antenal'], ['KC', 'Kenyon'], ['PAM', 'PAM · DA+'],
 const OUT_ROWS = [['speed', 'marcha'], ['turn', 'giro'], ['proboscis', 'probóscide'], ['escape', 'escape']];
 
 export class UI {
-  constructor({ sim, brain, world, sfx, fly, camera, app, brainView }) {
-    Object.assign(this, { sim, brain, world, sfx, fly, camera, app, brainView });
+  constructor({ sim, brain, world, sfx, fly, camera, app, brainView, brainSim }) {
+    Object.assign(this, { sim, brain, world, sfx, fly, camera, app, brainView, brainSim });
     this.acc = 0;
     this.drive = {};
     this.buildGod();
@@ -167,7 +167,7 @@ export class UI {
       vis: watching ? d.T4T5 : d.T4T5 * 0.45,
       ornL: d.ORN_L * 1.2, ornR: d.ORN_R * 1.2, kc: d.KC,
       da: b.phasic * 1.3 + 0.08, sleep: sleeping ? 1 : b.sueno * 0.45,
-      dn: Math.max(d.escape, d.speed * 0.45), mbon: d.MBON,
+      dn: Math.max(d.escape, d.speed * 0.45), mbon: d.MBON, walk: Math.min(1, d.speed * 1.4),
       eth: b.E('etanol'), nic: b.E('nicotina'), coc: b.E('cocaina'),
     };
   }
@@ -183,11 +183,14 @@ export class UI {
     if (s.state === 'act' && s.activity === 'reels') fx.push(['#5fd0ff', 'reels: flujo óptico en lóbulos ópticos (T4/T5)']);
     if (s.state === 'act' && s.activity === 'cama' && !s.insomnia) fx.push(['#8fa8ff', 'sueño: complejo central (dFB)']);
     if (s.state === 'jump') fx.push(['#ffffff', 'escape: LPLC2 → Giant Fiber → descendentes']);
+    else if (this.drive.speed > 0.35) fx.push(['#6fb89a', 'marcha: generadores de patrón del cordón nervioso']);
     if (Math.max(this.drive.ORN_L, this.drive.ORN_R) > 0.35) fx.push(['#80ff70', `olor: lóbulo antenal ${this.drive.ORN_L > this.drive.ORN_R ? 'izquierdo' : 'derecho'}`]);
     return fx.length ? fx : [['#6f8196', 'actividad basal']];
   }
 
   cellDrive(c) {
+    const st = this.brainSim?.state;
+    if (st) return clamp(st.cellRates[c.i] / 40);
     const d = this.drive;
     if (c.group === 'ORN') return c.side === 'left' ? d.ORN_L : d.ORN_R;
     if (c.group !== 'DN') return d[c.group] ?? 0;
@@ -328,8 +331,21 @@ export class UI {
 
   updateNeuralBars() {
     const d = this.drive, rates = this.brainView.groupRates();
-    for (const [k] of INPUT_ROWS) this.setBar('in_' + k, rates[k] ?? d[k]);
-    for (const [k] of POP_ROWS) this.setBar('pop_' + k, rates[k] ?? d[k]);
+    const R = this.brainSim?.state?.rates;
+    const real = R ? {
+      GRN: R.GRN_in / 80, ORN_L: R.ORN_L / 40, ORN_R: R.ORN_R / 40, VIS_L: R.light_L / 30, VIS_R: R.light_R / 30,
+      T4T5: R.T4T5 / 20, LPLC2: R.LPLC2 / 60, PN: R.PN / 60, KC: R.KC / 20, PAM: R.PAM / 30, PPL1: R.PPL1 / 30,
+      MBON: R.MBON / 40, dFB: R.dFB / 30,
+    } : {};
+    for (const [k] of INPUT_ROWS) this.setBar('in_' + k, real[k] ?? rates[k] ?? d[k]);
+    for (const [k] of POP_ROWS) this.setBar('pop_' + k, real[k] ?? rates[k] ?? d[k]);
+    const info = $('#brainSimInfo');
+    if (this.brainSim) {
+      const st = this.brainSim.state, m = this.brainSim.meta;
+      info.textContent = this.brainSim.error ? `simulación detenida: ${this.brainSim.error}`
+        : !st ? 'cargando el connectome completo…'
+        : `simulación LIF en vivo · ${m.neurons.toLocaleString('es')} neuronas · ${(m.edges / 1e6).toFixed(1).replace('.', ',')} M conexiones · tiempo biológico ×${st.bioRatio.toFixed(2).replace('.', ',')} · ${st.active.toLocaleString('es')} activas`;
+    }
     const w = this.sim.state === 'free' ? this.sim.weights : {};
     for (const id of this.world.stations.keys()) {
       this.setBar('sel_' + id, (w[id] ?? 0) * this.sim.motivation);

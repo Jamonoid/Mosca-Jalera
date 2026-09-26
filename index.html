@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Simulación</title>
-<meta name="description" content="Simulación 3D de Drosophila con autoadministración de etanol, nicotina y cocaína, apuestas y reels, con un circuito real de FlyWire.">
+<meta name="description" content="Simulación 3D de Drosophila con autoadministración de etanol, nicotina y cocaína, apuestas y reels, con el connectome completo MaleCNS simulado en vivo.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -80,7 +80,7 @@
 </div>
 
 <aside id="brain" class="col right term">
-  <div class="chips"><span id="brainMeta"></span></div>
+  <div class="chips"><span id="brainMeta"></span><div id="brainSimInfo" class="siminfo">cargando el connectome completo…</div></div>
   <div class="brain3d">
     <canvas id="brainCanvas"></canvas>
     <div class="hint3d">arrastra para rotar</div>
@@ -91,6 +91,7 @@
       <span><i style="background:#ffffff"></i>descendentes</span>
       <span><i style="background:#ff4d4d"></i>circuito (+) ACh</span>
       <span><i style="background:#4da3ff"></i>circuito (−) GABA/Glu</span>
+      <span><i style="background:#6fb89a"></i>cordón nervioso</span>
       <span><i style="background:#ffb340"></i>circuito DA/5-HT</span>
   </div>
   <div id="brainFx" class="brainfx"></div>
@@ -138,8 +139,9 @@
   <p>La mosca elige sola entre alimentarse, dormir, acicalarse y cinco estímulos de recompensa: etanol, nicotina, cocaína, una tragamonedas y un feed de reels. El usuario solo modifica el entorno y aplica intervenciones.</p>
   <h3>Qué es real y qué es modelo</h3>
   <ul>
-    <li><b>Anatomía y conectividad (reales):</b> la nube muestra los 139.248 somas de FlyWire FAFB v783 (Dorkenwald et al., 2024; Schlegel et al., 2024). El circuito de 70 neuronas y sus 4.264 sinapsis salen de la conectividad publicada por Shiu et al. (Nature 2024). El signo viene del neurotransmisor predicho (Eckstein et al., Cell 2024).</li>
-    <li><b>Actividad (modelo):</b> la actividad neuronal y la conducta vienen de un modelo fenomenológico, no de simular el connectome neurona a neurona.</li>
+    <li><b>Anatomía y conectividad (reales):</b> la nube muestra los 140.024 somas del sistema nervioso central completo (cerebro, lóbulos ópticos y cordón nervioso) de un macho, del connectome MaleCNS v1.0 (Janelia y Google Research, Cell 2026; CC-BY 4.0). El circuito de 70 neuronas y sus 10.785 sinapsis salen de esa misma conectividad. El signo viene del neurotransmisor predicho del propio MaleCNS.</li>
+    <li><b>Actividad (simulación del connectome):</b> las 165.122 neuronas del MaleCNS corren como un modelo LIF con los parámetros de Shiu et al. (Nature 2024), sobre sus 6,1 millones de conexiones de 5 o más sinapsis. El peso sináptico está escalado por la mayor densidad de sinapsis del MaleCNS respecto de FlyWire (0,18 mV por sinapsis). Se agregan adaptación de frecuencia y depresión sináptica de corto plazo, ausentes en el LIF original: sin ellas algunos circuitos quedaban disparando indefinidamente. El signo sale del neurotransmisor predicho; las neuronas moduladoras o sin transmisor predicho no se modelan como sinapsis rápidas. Cada punto de la nube se enciende con los disparos simulados de su neurona.</li>
+    <li><b>Entradas y salidas reales:</b> los sentidos entran por neuronas sensoriales reales (receptores de azúcar LB3, receptores olfativos de los glomérulos de vinagre y fruta, fotorreceptores R1–R6, T4/T5 y LPLC2/LC4). Las decisiones motoras salen de neuronas reales: la Giant Fiber (DNp01) dispara el escape, DNa01/DNa02 sesgan el giro, MDN hace retroceder y MN9 extiende la probóscide para comer. La motivación, el aprendizaje y la farmacología de alto nivel siguen en el modelo fenomenológico, que actúa sobre la red (nicotina sobre receptores de acetilcolina, etanol sobre GABA, cocaína sobre las dopaminérgicas PAM).</li>
     <li><b>Cuerpo:</b> <a href="https://github.com/TuragaLab/flybody" target="_blank" rel="noopener">flybody</a> (Vaxenburg et al., Nature 2025), simplificado.</li>
   </ul>
   <h3>Mecanismos</h3>

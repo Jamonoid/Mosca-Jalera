@@ -184,6 +184,11 @@ export class FlySim {
   }
   susto() {
     if (this.state === 'dead') return;
+    if (this.brainSim?.ready) {
+      this.brainSim.loom(200);
+      this.emit('Estímulo de amenaza · looming sobre LPLC2 y LC4 (neuronas reales)', 'info');
+      return;
+    }
     this.brain.susto = 1;
     const wasFallen = this.state === 'fallen';
     if (this.activity) this.endActivity(false);
@@ -241,6 +246,7 @@ export class FlySim {
 
     this._senseDt = dt;
     this.sense();
+    this.readConnectome(dt);
     switch (this.state) {
       case 'free': this.updateFree(dt); break;
       case 'align': this.updateAlign(dt); break;
@@ -261,6 +267,25 @@ export class FlySim {
     this.y += (g - this.y) * Math.min(1, dt * 12);
     this.fly.root.position.set(this.pos.x, this.y + (this.jump ? this.jump.h : 0), this.pos.z);
     this.fly.heading = this.heading;
+  }
+
+  /** Salidas del connectome: Giant Fiber (escape), MDN (retroceso). El giro y la probóscide se leen donde se usan. */
+  readConnectome(dt) {
+    const o = this.brainSim?.out;
+    this.gfCool = Math.max(0, (this.gfCool || 0) - dt);
+    if (!o) return;
+    if ((o.GF_L > 60 || o.GF_R > 60) && this.gfCool <= 0 && ['free', 'act', 'align', 'fallen'].includes(this.state)) {
+      this.gfCool = 2;
+      this.brain.susto = 1;
+      const wasFallen = this.state === 'fallen';
+      if (this.activity) this.endActivity(false);
+      // despega alejandose del lado con mas actividad de la Giant Fiber
+      const away = this.heading + (o.GF_L > o.GF_R ? -1 : 1) * rand(0.6, 1.4) + Math.PI;
+      this.takeoff(away, rand(16, 26), true);
+      this.sfx.play('zap');
+      this.emit(`Giant Fiber (DNp01) dispara ${Math.round(Math.max(o.GF_L, o.GF_R))} Hz → despegue de escape${wasFallen ? ' · recupera la postura' : ''}`, 'info');
+    }
+    this.mdnBack = o.MDN > 40 ? Math.min(1, (o.MDN - 40) / 60) : 0;
   }
 
   ethoKey() {
@@ -464,16 +489,21 @@ export class FlySim {
     let whirlW = 0;
     if (this.whirl > 0) { this.whirl -= dt; whirlW = 8; }
 
+    const o = this.brainSim?.out;
+    const dnL = o ? o.DNa01_L + o.DNa02_L : 0, dnR = o ? o.DNa01_R + o.DNa02_R : 0;
+    const dnSteer = o ? 3 * (dnL - dnR) / (dnL + dnR + 6) : 0; // DNa01/DNa02 del lado del giro
+    this.dnSteer = dnSteer;
     const omega = this.walking
-      ? clamp(steer + this.noiseW + saccW + wall + obst + whirlW + b.profile.lateralidad, -14, 14)
+      ? clamp(steer + dnSteer + this.noiseW + saccW + wall + obst + whirlW + b.profile.lateralidad, -14, 14)
       : clamp(saccW * 0.3 + this.noiseW * 0.15, -2, 2);
     this.heading += omega * dt;
     this.turnRate = omega;
 
     const vTarget = this.walking ? 19 * this.locomotionMult() * (0.6 + 0.4 * this.motivation) * (whirlW ? 0.6 : 1) : 0;
     this.speed += (vTarget - this.speed) * Math.min(1, dt * 8);
-    this.pos.x += Math.cos(this.heading) * this.speed * dt;
-    this.pos.z += -Math.sin(this.heading) * this.speed * dt;
+    const back = this.mdnBack ? -0.6 * this.mdnBack : 1; // MDN: marcha hacia atras
+    this.pos.x += Math.cos(this.heading) * this.speed * back * dt;
+    this.pos.z += -Math.sin(this.heading) * this.speed * back * dt;
     const rr = Math.hypot(this.pos.x, this.pos.z);
     if (rr > TABLE_R) this.pos.multiplyScalar(TABLE_R / rr);
     for (const o of this.world.obstacles) {
@@ -676,7 +706,8 @@ export class FlySim {
       }
       case 'comida': {
         const hunger = 1 - b.energia;
-        b.energia = clamp(b.energia + 0.09 * dt);
+        const pe = this.brainSim?.out ? 0.3 + 0.7 * clamp(this.brainSim.out.MN9 / 5) : 1; // MN9: extension de probóscide
+        b.energia = clamp(b.energia + 0.09 * pe * dt);
         this.sessionR += b.reward((0.06 + 0.2 * hunger) * dt);
         this.acc += dt;
         if (this.acc > 1.5) { this.acc = 0; this.sfx.play('munch'); }
@@ -806,7 +837,7 @@ export class FlySim {
       tremor: dead ? 0 : clamp(Math.max(eNic - 0.55, b.W('etanol') * 0.9, b.W('nicotina') * 0.5, this.state === 'seizure' ? 1 : 0, b.susto * 0.3, eCoc > 0.9 ? 0.5 : 0)),
       wings: dead ? 0 : this.state === 'jump' ? 1 : this.celebrate > 0 ? 0.8 : (eCoc > 0.7 && Math.sin(b.stats.vivo * 1.3) > 0.7 ? 0.5 : 0),
       spread: this.celebrate > 0 ? 0.6 : 0,
-      proboscis: (act === 'bar' || act === 'comida') ? 0.6 + 0.4 * Math.max(0, Math.sin(this.actT * 4))
+      proboscis: this.brainSim?.out ? clamp(this.brainSim.out.MN9 / 6) : (act === 'bar' || act === 'comida') ? 0.6 + 0.4 * Math.max(0, Math.sin(this.actT * 4))
         : act === 'coca' ? (Math.abs(this.actT - 0.8) < 0.35 || Math.abs(this.actT - 1.8) < 0.35 ? 1 : 0.2) : 0,
       fall: dead || this.state === 'fallen' ? 1 : 0,
       sway: dead ? 0 : clamp(eEth * 1.4),

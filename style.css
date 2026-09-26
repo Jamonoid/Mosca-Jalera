@@ -119,6 +119,7 @@ summary { cursor: pointer; color: var(--muted); font-size: 10.5px; font-weight: 
 .term { background: var(--term); border: 1px solid var(--term-line); border-radius: 10px; padding: 10px 12px; font: 11px/1.35 var(--mono); color: #c7d3e0; }
 .chips { color: #9fb2c8; margin-bottom: 8px; font-size: 10.5px; }
 .chips b { color: #fff; }
+.siminfo { margin-top: 3px; color: #7fd3a8; }
 .brain3d { position: relative; border: 1.5px solid #e8c77a; border-radius: 8px; overflow: hidden; height: 290px; box-shadow: 0 0 18px rgba(232, 199, 122, 0.18); }
 #brainCanvas { width: 100%; height: 100%; display: block; cursor: grab; }
 #brainCanvas:active { cursor: grabbing; }

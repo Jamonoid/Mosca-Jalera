@@ -13,6 +13,7 @@ import { UI } from './ui.js';
 import { Sfx } from './sfx.js';
 import { IntoxShader } from './fx.js';
 import { BrainView } from './brainview.js';
+import { BrainSim } from './brainsim.js';
 
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 
@@ -93,7 +94,11 @@ const app = {
   },
 };
 
-const ui = new UI({ sim, brain, world, sfx, fly, camera, app, brainView });
+// Simulacion LIF del connectome completo en un hilo aparte
+const brainSim = new BrainSim(new URL('../assets/', import.meta.url).href, brainView.meta.cells.map(c => c.idx ?? -1));
+brainSim.onState(st => brainView.setTrace(st.trace));
+sim.brainSim = brainSim;
+const ui = new UI({ sim, brain, world, sfx, fly, camera, app, brainView, brainSim });
 sim.subject = 0;
 sim.reset();
 
@@ -167,6 +172,7 @@ addEventListener('resize', () => {
 // Bucle principal
 const clock = new THREE.Clock();
 const fxState = { drunk: 0, high: 0, sick: 0 };
+let sendT = 0;
 function frame() {
   const rdt = Math.min(clock.getDelta(), 0.1);
   const sdt = app.paused ? 0 : rdt * app.speed;
@@ -198,6 +204,8 @@ function frame() {
   intox.uniforms.uHigh.value = fxState.high;
   intox.uniforms.uSick.value = fxState.sick;
 
+  sendT += rdt;
+  if (sendT > 0.05) { sendT = 0; brainSim.send(sim, brain, world, app); }
   ui.update(rdt);
   updateCamera(rdt);
   composer.render();
@@ -217,5 +225,5 @@ function frame() {
   restore.forEach(f => f());
 }
 document.getElementById('loading').remove();
-window.__app = { sim, brain, world, fly, camera, controls, app, brainView, ui, renderer };
+window.__app = { sim, brain, world, fly, camera, controls, app, brainView, ui, renderer, brainSim };
 requestAnimationFrame(frame);

@@ -13,10 +13,10 @@ Simulación 3D de una mosca de la fruta (*Drosophila melanogaster*) expuesta a e
 ## Qué es real y qué es modelo
 
 - **Datos reales:**
-  - Anatomía y conectividad de FlyWire FAFB v783 (Dorkenwald et al., 2024; Schlegel et al., 2024).
-  - Un circuito de 70 neuronas extraído de la conectividad de Shiu et al. (Nature, 2024).
+  - Connectome MaleCNS v1.0 (Janelia y Google Research, Cell 2026): sistema nervioso central completo de un macho, con 165.122 neuronas.
   - El cuerpo de [flybody](https://github.com/TuragaLab/flybody) (Vaxenburg et al., Nature 2025).
-- **Modelo fenomenológico:** la actividad neuronal y la conducta. No simulan el connectome neurona a neurona.
+- **Simulación del connectome:** las 165.122 neuronas corren en vivo como un modelo LIF (parámetros de Shiu et al., Nature 2024) sobre sus 6,1 millones de conexiones. Los sentidos entran por neuronas sensoriales reales. Las neuronas descendentes y motoras reales deciden el escape (Giant Fiber), el giro (DNa01/02), el retroceso (MDN) y la extensión de probóscide (MN9).
+- **Modelo fenomenológico:** la motivación, el aprendizaje por dopamina y la farmacología de alto nivel.
 - **Parámetros:** son ilustrativos y no están ajustados a datos experimentales.
 
 ## Uso
@@ -39,4 +39,4 @@ cerrar.bat     detiene el servidor
 
 ## Licencia
 
-Código bajo licencia MIT. Los datos y modelos de terceros conservan sus licencias: flybody (Apache-2.0), FlyWire y Drosophila_brain_model según sus términos.
+Código bajo licencia MIT. Los datos y modelos de terceros conservan sus licencias: flybody (Apache-2.0) y MaleCNS (CC-BY 4.0).
